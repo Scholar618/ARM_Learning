@@ -99,7 +99,7 @@ _start:			@ 汇编的入口
 	
 	@ 数据运算指令扩展
 	@ 遇到这种情况，将后面几个操作码看作一个整体。
-	@ MOV R1, R2, LSL, #1
+	@ MOV R1, R2, LSL #1
 	@ R1 = (R2 << 1)
 	
 	@ 数据运算指令对条件位（N、Z、C、V）的影响
@@ -138,16 +138,270 @@ _start:			@ 汇编的入口
 	@ 第二个数
 	@ 0x00000001	00000005
 	
-	MOV R1, #0x00000001
-	MOV R2, #0x00000002
-	MOV R3, #0x00000005
-	MOV R4, #0x00000001
-	SUBS R5, R1, R3
-	SUB	 R6, R2, R4	
+	@ MOV R1, #0x00000001
+	@ MOV R2, #0x00000002
+	@ MOV R3, #0x00000005
+	@ MOV R4, #0x00000001
+	@ SUBS R5, R1, R3
+	@ SUB	 R6, R2, R4	
 	@ 本质：R6 = R2 - R4 - '!C'
 	
+	@ 1.2 跳转指令：实现了程序的跳转，本质就是修改了PC的寄存器
 	
+	@ 方式一：直接修改PC寄存器中的值
+	@（不建议使用，需要我们去计算绝对地址）
+@ MAIN:
+	@ MOV R1, #1
+	@ MOV R2, #2
+	@ MOV R3, #3
+	@ 跳转到FUNC函数
+	@ MOV PC, #0x18
+	@ MOV R4, #4
+	@ MOV R5, #5
+@ FUNC:
+	@ MOV R6, #6
+	@ MOV R7, #7
+	@ MOV R8, #8
 	
+	@ 方式二：不带返回的通过跳转指令
+	@ 本质就是修改了PC寄存器，修改为跳转标号下第一条指令的地址
+@ MAIN:
+	@ MOV R1, #1
+	@ MOV R2, #2
+	@ MOV R3, #3
+	@ 跳转到FUNC函数
+	@ B		FUNC
+	@ MOV R4, #4
+	@ MOV R5, #5
+@ FUNC:
+	@ MOV R6, #6
+	@ MOV R7, #7
+	@ MOV R8, #8
+	
+	@ 方式三：带返回的通过跳转指令
+	@ 本质就是修改了PC寄存器，修改为跳转标号下第一条指令的地址
+	@ 同时将跳转指令下的一条指令，存储到LR寄存器
+@ MAIN:
+	@ MOV R1, #1
+	@ MOV R2, #2
+	@ MOV R3, #3
+	@ 跳转到FUNC函数
+	@ BL	FUNC
+	@ MOV R4, #4
+	@ MOV R5, #5
+@ FUNC:
+	@ MOV R6, #6
+	@ MOV R7, #7
+	@ MOV R8, #8
+	@ MOV PC, LR
+	
+	@ ARM 条件的条件执行
+	
+	@ 比较指令
+	@ CMP的本质就是一条减法指令（SUBS）只是没有将运算结果存入寄存器
+	@ MOV R1, #1
+	@ MOV R2, #2
+	@ CMP R1, R2
+	@ BEQ FUNC	@ if(EQ)(B FUNC)本质：if(Z == 1) (B FUNC)
+	@ BNE FUNC	@ if(NQ)(B FUNC)本质：if(Z == 0) (B FUNC)
+	@ MOV R3, #3
+	@ MOV R4, #4
+	@ MOV R5, #5
+	
+@ FUNC:
+	@ MOV R6, #6
+	@ MOV R7, #7
+	
+	@ ARM 指令集中大多数都可以带条件码后缀
+	@ MOV R1, #1
+	@ MOV R2, #2
+	@ CMP R1, R2
+	@ MOVGT R3, #3
+	
+@ 练习
+	@ int R1 = 9;
+	@ int R2 = 15;
+@ START:
+	@ if(R1 == R2) 
+		@ STOP();
+	@ else if(R1 > R2) {
+		@ R1 = R1 - R2;
+		@ goto START;
+	@ }
+	@ else {
+		@ R2 = R2 - R1;
+		@ goto START;
+	@ }
+	
+	@ MOV R1, #9
+	@ MOV R2, #15
+@ START:
+	@ CMP R1, R2
+	@ BEQ stop
+	@ SUBGT R1, R1, R2
+	@ SUBLT R2, R2, R1
+	@ B START
+	
+	@ 1.3 Load/Store指令：访问（读写）内存
+	
+	@ MOV R1, #0xFF000000
+	@ MOV R2, #0x40000000
+	@ 写内存(将R1寄存器的数据存储到R2指向的内存空间)
+	@ STR R1, [R2]
+	
+	@ 读内存（将内存中R2指向的内存空间中的数据读取到R3寄存器）
+	@ LDR R3, [R2]
+	
+	@ MOV R1, #0xFFFFFFFF
+	@ MOV R2, #0x40000000
+	@ STRB R1, [R2]		@ 一个字节
+	@ STRH R1, [R2]		@ 两个字节
+	@ STR R1, [R2] 		@ 四个字节
+	
+	@ 寻址方式就是CPU去寻找一个操作数的方式
+	
+	@ 立即寻址
+	@ MOV R1, #1
+	@ ADD R1, R2, #1
+	
+	@ 寄存器寻址
+	@ ADD R1, R2, R3
+	
+	@ 寄存器移位寻址
+	@ MOV R1, R2, LSL #1
+	
+	@ 寄存器间接寻址
+	@ STR R1, [R2]
+	
+	@ 基址加变址寻址
+	@ MOV R1, #0xFFFFFFFF
+	@ MOV R2, #0x40000000
+	@ MOV R3, #4
+	@ STR R1, [R2, R3]			@ 将R1寄存器中的数据写入到R2+R3指向的内存空间
+	@ STR R1, [R2, R3, LSL #1]	@ 将R1寄存器中的数据写入到R2+(R3 << 1)指向的内存空间
+	
+	@ 基址加变址寻址的索引方式
+	@ 前索引
+	@ MOV R1, #0xFFFFFFFF
+	@ MOV R2, #0x40000000
+	@ STR R1, [R2, #8]
+	@ 将R1寄存器中的数据写入到R2+8指向的内存空间
+	
+	@ 后索引
+	@ MOV R1, #0xFFFFFFFF
+	@ MOV R2, #0x40000000
+	@ STR R1, [R2], #8
+	@ 将R1寄存器中的数据写入到R2指向的内存空间，然后R2自增8
+	
+	@ 自动索引
+	@ MOV R1, #0xFFFFFFFF
+	@ MOV R2, #0x40000000
+	@ STR R1, [R2, #8]!
+	@ 将R1寄存器中的数据写入到R2+8指向的内存空间，然后R2自增8
+	
+	@ 以上寻址方式和索引方式同样适合于LDR
+	
+	@ 多寄存器内存访问指令
+	@ MOV R1, #1
+	@ MOV R2, #2
+	@ MOV R3, #3
+	@ MOV R4, #4
+	@ MOV R11, #0x40000020
+	@ STM R11,{R1-R4}
+	@ 将R1-R4寄存器中的数据存储到内存以R11为起始地址的内存中
+	@ LDM R11,{R6-R9}
+	@ 将内存中以R11为起始地址的数据读取到R6-R9寄存器中
+	@ 当寄存器不连续时，使用逗号分隔
+	@ STM R11, {R1, R2, R4}
+	@ 不管寄存器列表中的顺序如何，存储时永远是低地址存储小标号的寄存器
+	@ STM R11, {R3, R2, R1, R4}
+	@ 自动索引照样适用于多寄存器内存访问指令
+	@ STM R11!,(R1-R4)
+
+	@ 多寄存器内存访问指令的寻址方式
+	@ MOV R1, #1
+	@ MOV R2, #2
+	@ MOV R3, #3
+	@ MOV R4, #4
+	@ MOV R11, #0x40000020
+	@ STMIA R11!, {R1-R4}
+	@ STMIB R11!, {R1-R4}
+	@ STMDA R11!, {R1-R4}
+	@ STMDB R11!, {R1-R4}
+
+	@ 栈的种类与使用
+	@ MOV R1, #1
+	@ MOV R2, #2
+	@ MOV R3, #3
+	@ MOV R4, #4
+	@ MOV R11, #0x40000020
+	@ STMDB R11!, {R1-R4}
+	@ LDMIA R11!, {R6-R9}
+	@ STMFD R11!, {R1-R4}
+	@ LDMFD R11!, {R6-R9}
+
+	@ 栈的应用举例
+	
+	@ 叶子函数的调用过程举例
+	@ 初始化栈指针
+	@ MOV SP, #0x40000020
+	
+@ MAIN:
+		@ MOV R1, #3
+		@ MOV R2, #5
+		@ BL	FUNC
+		@ ADD R3, R1, R2
+		@ B stop
+		
+@ FUNC:
+		@ 压栈保护现场
+		@ STMFD SP!, {R1, R2}		@ 满减栈
+		@ MOV R1, #10
+		@ MOV R2, #20
+		@ SUB R3, R2, R1
+		@ 出栈恢复现场
+		@ LDMFD SP!, {R1, R2}
+		@ MOV PC, LR
+		
+	@ 非叶子函数的调用过程举例
+	@ 初始化栈指针
+	MOV SP, #0x40000020
+	
+@ MAIN:
+		@ MOV R1, #3
+		@ MOV R2, #5
+		@ BL	FUNC1
+		@ ADD R3, R1, R2
+		@ B stop
+		
+@ FUNC1:
+		@ STMFD SP!, {R1, R2, LR}		@ 满减栈
+		@ MOV R1, #10
+		@ MOV R2, #20
+		@ BL FUNC2
+		@ SUB R3, R2, R1
+		@ LDMFD SP!, {R1, R2, LR}
+		@ MOV PC, LR
+@ FUNC2:
+		@ STMFD SP!, {R1, R2}	
+		@ MOV R1, #7
+		@ MOV R2, #8
+		@ MUL R3, R1, R2
+		@ LDMFD SP!, {R1, R2}
+		@ MOV PC, LR
+		
+	@ 1.4 状态寄存器传送指令：访问（读写）CPSR寄存器
+		
+		@ 读CPSR
+		MRS R1, CPSR
+		@ R1 = CPSR
+		
+		@ 写CPSR
+		MSR CPSR, #0x10
+		
+		@ 在USER模式下不能修改CPSR， 非特权模式
+		MSR CPSR, #0xD3
+
 
 stop:			@ 死循环防止跑飞
 	B stop
